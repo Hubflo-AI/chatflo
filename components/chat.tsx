@@ -70,12 +70,7 @@ export function Chat({
 
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
-  const [currentModelId, setCurrentModelId] = useState(initialChatModel);
-  const currentModelIdRef = useRef(currentModelId);
-
-  useEffect(() => {
-    currentModelIdRef.current = currentModelId;
-  }, [currentModelId]);
+  const currentModelIdRef = useRef(initialChatModel);
 
   const {
     messages,
@@ -215,8 +210,7 @@ export function Chat({
               chatId={id}
               input={input}
               messages={messages}
-              onModelChange={setCurrentModelId}
-              selectedModelId={currentModelId}
+              selectedModelId={initialChatModel}
               selectedVisibilityType={visibilityType}
               sendMessage={sendMessage}
               setAttachments={setAttachments}
@@ -237,7 +231,7 @@ export function Chat({
         isReadonly={isReadonly}
         messages={messages}
         regenerate={regenerate}
-        selectedModelId={currentModelId}
+        selectedModelId={initialChatModel}
         selectedVisibilityType={visibilityType}
         sendMessage={sendMessage}
         setAttachments={setAttachments}
