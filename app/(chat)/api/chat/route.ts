@@ -1,4 +1,4 @@
-import { experimental_createMCPClient } from "@ai-sdk/mcp";
+import { createMCPClient } from "@ai-sdk/mcp";
 import { geolocation, ipAddress } from "@vercel/functions";
 import {
   convertToModelMessages,
@@ -156,15 +156,13 @@ export async function POST(request: Request) {
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
         // Connect to Hubflo MCP server — gracefully skip if not configured or unreachable
-        type HubfloClient = Awaited<
-          ReturnType<typeof experimental_createMCPClient>
-        >;
+        type HubfloClient = Awaited<ReturnType<typeof createMCPClient>>;
         let hubfloClient: HubfloClient | null = null;
         let hubfloTools: Awaited<ReturnType<HubfloClient["tools"]>> = {};
 
         if (process.env.HUBFLO_MCP_URL && process.env.HUBFLO_MCP_API_KEY) {
           try {
-            hubfloClient = await experimental_createMCPClient({
+            hubfloClient = await createMCPClient({
               transport: {
                 type: "http",
                 url: process.env.HUBFLO_MCP_URL,
