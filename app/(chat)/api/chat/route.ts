@@ -4,6 +4,7 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  gateway,
   generateId,
   stepCountIs,
   streamText,
@@ -186,6 +187,7 @@ export async function POST(request: Request) {
           createDocument: createDocument({ session, dataStream }),
           updateDocument: updateDocument({ session, dataStream }),
           requestSuggestions: requestSuggestions({ session, dataStream }),
+          web_search: gateway.tools.perplexitySearch(),
         };
 
         const hubfloToolNames = Object.keys(hubfloTools);
@@ -203,6 +205,7 @@ export async function POST(request: Request) {
                 "createDocument",
                 "updateDocument",
                 "requestSuggestions",
+                "web_search",
                 ...hubfloToolNames,
               ],
           providerOptions: isReasoningModel
