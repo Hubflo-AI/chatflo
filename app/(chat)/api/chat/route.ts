@@ -190,24 +190,17 @@ export async function POST(request: Request) {
           web_search: gateway.tools.perplexitySearch(),
         };
 
-        const hubfloToolNames = Object.keys(hubfloTools);
-
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
           // 10 steps: enough for search_docs → execute → answer, plus retries
           stopWhen: stepCountIs(10),
-          experimental_activeTools: isReasoningModel
-            ? []
-            : [
-                "getWeather",
-                "createDocument",
-                "updateDocument",
-                "requestSuggestions",
-                "web_search",
-                ...hubfloToolNames,
-              ],
+          // Reasoning models can't use tools; for all others, omitting
+          // experimental_activeTools lets every key in `tools` be active.
+          // We can't spread dynamic MCP tool names into the typed union, and
+          // listing all tools explicitly is equivalent to omitting the field.
+          experimental_activeTools: isReasoningModel ? [] : undefined,
           providerOptions: isReasoningModel
             ? {
                 anthropic: {
