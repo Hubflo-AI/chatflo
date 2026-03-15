@@ -40,7 +40,7 @@ import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 function getStreamContext() {
   try {
@@ -154,21 +154,32 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
-        // Connect to Hubflo MCP server if configured
-        const hubfloClient =
-          process.env.HUBFLO_MCP_URL && process.env.HUBFLO_MCP_API_KEY
-            ? await experimental_createMCPClient({
-                transport: {
-                  type: "http",
-                  url: process.env.HUBFLO_MCP_URL,
-                  headers: {
-                    "x-hubflo-mcp-api-key": process.env.HUBFLO_MCP_API_KEY,
-                  },
-                },
-              })
-            : null;
+        // Connect to Hubflo MCP server — gracefully skip if not configured or unreachable
+        type HubfloClient = Awaited<
+          ReturnType<typeof experimental_createMCPClient>
+        >;
+        let hubfloClient: HubfloClient | null = null;
+        let hubfloTools: Awaited<ReturnType<HubfloClient["tools"]>> = {};
 
-        const hubfloTools = hubfloClient ? await hubfloClient.tools() : {};
+        if (process.env.HUBFLO_MCP_URL && process.env.HUBFLO_MCP_API_KEY) {
+          try {
+            hubfloClient = await experimental_createMCPClient({
+              transport: {
+                type: "http",
+                url: process.env.HUBFLO_MCP_URL,
+                headers: {
+                  "x-hubflo-mcp-api-key": process.env.HUBFLO_MCP_API_KEY,
+                },
+              },
+            });
+            hubfloTools = await hubfloClient.tools();
+          } catch (err) {
+            console.error("Hubflo MCP connection failed, continuing without it:", err);
+            await hubfloClient?.close();
+            hubfloClient = null;
+            hubfloTools = {};
+          }
+        }
 
         const coreTools = {
           getWeather,
@@ -183,6 +194,7 @@ export async function POST(request: Request) {
           model: getLanguageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
+          // 10 steps: enough for search_docs → execute → answer, plus retries
           stopWhen: stepCountIs(10),
           experimental_activeTools: isReasoningModel
             ? []
@@ -208,6 +220,7 @@ export async function POST(request: Request) {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
           },
+          // Always close the MCP client when the stream ends, success or failure
           onFinish: async () => {
             await hubfloClient?.close();
           },
