@@ -1,5 +1,5 @@
 // Curated list of top models from Vercel AI Gateway
-export const DEFAULT_CHAT_MODEL = "openai/gpt-4.1-mini";
+export const DEFAULT_CHAT_MODEL = "openai/gpt-5.4";
 
 export type ChatModel = {
   id: string;
@@ -28,6 +28,12 @@ export const chatModels: ChatModel[] = [
     name: "GPT-5 Mini",
     provider: "openai",
     description: "Most capable OpenAI model",
+  },
+  {
+    id: "openai/gpt-5.4",
+    name: "GPT-5.4",
+    provider: "openai",
+    description: "Latest and most capable OpenAI model",
   },
   // Google
   {
