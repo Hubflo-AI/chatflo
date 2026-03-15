@@ -17,5 +17,19 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  return signIn("guest", { redirect: true, redirectTo: redirectUrl });
+  // Credentials provider doesn't support redirect: true from GET handlers
+  // (causes InvalidProvider: "Callback for provider type (credentials) is not supported")
+  try {
+    const result = await signIn("guest", {
+      redirect: false,
+      redirectTo: redirectUrl,
+    });
+
+    // signIn returns the redirect URL string on success
+    const targetUrl =
+      typeof result === "string" ? result : redirectUrl;
+    return NextResponse.redirect(new URL(targetUrl, request.url));
+  } catch {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
 }
