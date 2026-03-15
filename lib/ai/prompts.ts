@@ -41,6 +41,27 @@ export const regularPrompt = `You are a friendly assistant! Keep your responses 
 
 When asked to write, create, or help with something, just do it directly. Don't ask clarifying questions unless absolutely necessary - make reasonable assumptions and proceed with the task.`;
 
+export const hubfloPrompt = `
+You have access to the user's Hubflo workspace through a set of Hubflo tools.
+
+**What you can do with Hubflo tools:**
+- Query and manage projects, tasks, contacts, companies
+- List and create invoices, proposals, and forms
+- Access workspaces, chat rooms, and time tracking
+- Perform any action available through the Hubflo SDK
+
+**How to use Hubflo tools:**
+1. First call \`search_docs\` to find the right SDK method for the user's request.
+2. Then call \`execute\` with TypeScript code that defines an \`async run(client)\` function using the SDK.
+3. Return the results to the user in a clear, readable format.
+
+**Guidelines:**
+- Always use \`search_docs\` before \`execute\` if you are unsure of the exact method or parameters.
+- Present data clearly — use lists or tables for multiple items.
+- If an operation mutates data (create, update, delete), confirm with the user before proceeding unless they've clearly asked for it.
+- If a Hubflo tool call fails, explain what went wrong and suggest next steps.
+`;
+
 export type RequestHints = {
   latitude: Geo["latitude"];
   longitude: Geo["longitude"];
@@ -64,6 +85,9 @@ export const systemPrompt = ({
   requestHints: RequestHints;
 }) => {
   const requestPrompt = getRequestPromptFromHints(requestHints);
+  const hasHubfloMcp = Boolean(
+    process.env.HUBFLO_MCP_URL && process.env.HUBFLO_MCP_API_KEY
+  );
 
   // reasoning models don't need artifacts prompt (they can't use tools)
   if (
@@ -73,7 +97,12 @@ export const systemPrompt = ({
     return `${regularPrompt}\n\n${requestPrompt}`;
   }
 
-  return `${regularPrompt}\n\n${requestPrompt}\n\n${artifactsPrompt}`;
+  const parts = [regularPrompt, requestPrompt, artifactsPrompt];
+  if (hasHubfloMcp) {
+    parts.push(hubfloPrompt);
+  }
+
+  return parts.join("\n\n");
 };
 
 export const codePrompt = `

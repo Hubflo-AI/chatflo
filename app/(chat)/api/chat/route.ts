@@ -1,3 +1,4 @@
+import { experimental_createMCPClient } from "@ai-sdk/mcp";
 import { geolocation, ipAddress } from "@vercel/functions";
 import {
   convertToModelMessages,
@@ -153,11 +154,36 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
+        // Connect to Hubflo MCP server if configured
+        const hubfloClient =
+          process.env.HUBFLO_MCP_URL && process.env.HUBFLO_MCP_API_KEY
+            ? await experimental_createMCPClient({
+                transport: {
+                  type: "http",
+                  url: process.env.HUBFLO_MCP_URL,
+                  headers: {
+                    "x-hubflo-mcp-api-key": process.env.HUBFLO_MCP_API_KEY,
+                  },
+                },
+              })
+            : null;
+
+        const hubfloTools = hubfloClient ? await hubfloClient.tools() : {};
+
+        const coreTools = {
+          getWeather,
+          createDocument: createDocument({ session, dataStream }),
+          updateDocument: updateDocument({ session, dataStream }),
+          requestSuggestions: requestSuggestions({ session, dataStream }),
+        };
+
+        const hubfloToolNames = Object.keys(hubfloTools);
+
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
-          stopWhen: stepCountIs(5),
+          stopWhen: stepCountIs(10),
           experimental_activeTools: isReasoningModel
             ? []
             : [
@@ -165,6 +191,7 @@ export async function POST(request: Request) {
                 "createDocument",
                 "updateDocument",
                 "requestSuggestions",
+                ...hubfloToolNames,
               ],
           providerOptions: isReasoningModel
             ? {
@@ -174,14 +201,18 @@ export async function POST(request: Request) {
               }
             : undefined,
           tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({ session, dataStream }),
+            ...coreTools,
+            ...hubfloTools,
           },
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
+          },
+          onFinish: async () => {
+            await hubfloClient?.close();
+          },
+          onError: async () => {
+            await hubfloClient?.close();
           },
         });
 
